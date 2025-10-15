@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
   // Ambil token dari cookies
-  const token = localStorage.getItem("token");
+  const token = request.cookies.get("token")?.value;
 
   // Daftar route yang butuh proteksi
   const protectedRoutes = ["/dashboard", "/profile", "/admin"];
