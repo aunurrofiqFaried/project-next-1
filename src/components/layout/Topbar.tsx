@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { Bell, Menu, Search } from "lucide-react";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -25,6 +26,15 @@ const Navbar = ({ onMenuClick }: { onMenuClick: () => void }) => {
 
   const router = useRouter();
 
+  type DecodedToken = {
+  name: string;
+  email: string;
+  role?: string;
+  [key: string]: any;
+};
+    const [user, setUser] = useState<DecodedToken | null>(null);
+    const [loading, setLoading] = useState(true);
+
   const handleLogout = () => {
     // 1️⃣ Hapus token dari localStorage
     localStorage.removeItem("token");
@@ -35,6 +45,49 @@ const Navbar = ({ onMenuClick }: { onMenuClick: () => void }) => {
     // 3️⃣ Arahkan kembali ke halaman login
     router.push("/auth/login");
   };
+
+  useEffect(() => {
+      const verify = async () => {
+        setLoading(true);
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            setLoading(false);
+            return;
+          }
+  
+          const res = await fetch("/api/verify-token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // jika endpoint juga mendukung Authorization header, bisa ditambahkan:
+              // "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ token }),
+          });
+  
+          const json = await res.json();
+  
+          if (res.ok && json?.status === "success" && json?.data) {
+            setUser(json.data as DecodedToken);
+          } else {
+            // Token tidak valid -> hapus dari localStorage
+            localStorage.removeItem("token");
+            setUser(null);
+            // Optional: redirect ke login
+            // router.push("/login");
+          }
+        } catch (err) {
+          console.error("Gagal memverifikasi token:", err);
+          localStorage.removeItem("token");
+          setUser(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+  
+      verify();
+    }, [router]);
 
   const title = menuMap[pathname] || "SMK Negeri Takeran";
 
@@ -81,14 +134,14 @@ const Navbar = ({ onMenuClick }: { onMenuClick: () => void }) => {
             <DropdownMenuTrigger asChild>
               <Avatar className="h-8 w-8 cursor-pointer">
                 <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-                <AvatarFallback className="bg-blue-600 text-white">
-                  A
-                </AvatarFallback>
+<AvatarFallback className="bg-blue-600 text-primary-foreground text-xs">
+              {user?.name ? user.name.charAt(0).toUpperCase() : "AD"}
+            </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuLabel>Account</DropdownMenuLabel>
+              <DropdownMenuLabel className="font-bold">{user?.name || "Account"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
             </DropdownMenuContent>

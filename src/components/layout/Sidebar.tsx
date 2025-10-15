@@ -1,9 +1,8 @@
 "use client";
 // import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { jwtDecode } from "jwt-decode";
 import { Bell, Menu, X, Home, Users, ChartBar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,18 +26,51 @@ const Sidebar = ({
 }) => {
   const pathname = usePathname();
   const [user, setUser] = useState<DecodedToken | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
+useEffect(() => {
+    const verify = async () => {
+      setLoading(true);
       try {
-        const decoded: DecodedToken = jwtDecode(token);
-        setUser(decoded);
-      } catch (error) {
-        console.error("Token tidak valid:", error);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch("/api/verify-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // jika endpoint juga mendukung Authorization header, bisa ditambahkan:
+            // "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        const json = await res.json();
+
+        if (res.ok && json?.status === "success" && json?.data) {
+          setUser(json.data as DecodedToken);
+        } else {
+          // Token tidak valid -> hapus dari localStorage
+          localStorage.removeItem("token");
+          setUser(null);
+          // Optional: redirect ke login
+          // router.push("/login");
+        }
+      } catch (err) {
+        console.error("Gagal memverifikasi token:", err);
+        localStorage.removeItem("token");
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, []);
+    };
+
+    verify();
+  }, [router]);
   
   const menuItems = [
     { 
@@ -115,7 +147,7 @@ const Sidebar = ({
         <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-blue-600 text-primary-foreground text-xs">
-              AD
+              {user?.name ? user.name.charAt(0).toUpperCase() : "AD"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
